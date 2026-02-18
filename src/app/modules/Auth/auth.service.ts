@@ -10,6 +10,30 @@ import { jwtHelpers } from "../../../helpers/jwtHelpers";
 import prisma from "../../../shared/prisma";
 import { AuthUtils } from "./auth.utils";
 
+const createUser = async (payload: User & { password: string }) => {
+  const existingUser = await prisma.user.findUnique({
+    where: { email: payload.email },
+  });
+  if (existingUser) {
+    throw new ApiError(httpStatus.CONFLICT, "Email already exists");
+  }
+
+  const hashedPassword: string = await bcrypt.hash(payload.password, 12);
+ const { password, ...userData } = payload;
+  //create user
+  await prisma.user.create({
+    data: {
+      ...userData,
+      credentials: {
+        create: {
+          password: hashedPassword,
+        },
+      },
+    },
+  });
+
+  return existingUser;
+};
 const loginUser = async (payload: { email: string; password: string }) => {
   const userData = await prisma.user.findUnique({
     where: {
@@ -31,7 +55,7 @@ const loginUser = async (payload: { email: string; password: string }) => {
   }
   const isCorrectPassword: boolean = await bcrypt.compare(
     payload.password,
-    userData.password
+    userData.password,
   );
 
   if (!isCorrectPassword) {
@@ -48,7 +72,7 @@ const loginUser = async (payload: { email: string; password: string }) => {
       photo: userData.photo || null,
     },
     config.jwt.jwt_secret as Secret,
-    (config.jwt.expires_in as string) || "7d"
+    (config.jwt.expires_in as string) || "7d",
   );
 
   const refreshToken = jwtHelpers.generateToken(
@@ -61,7 +85,7 @@ const loginUser = async (payload: { email: string; password: string }) => {
       photo: userData.photo || null,
     },
     config.jwt.refresh_token_secret as Secret,
-    config.jwt.refresh_token_expires_in as string
+    config.jwt.refresh_token_expires_in as string,
   );
 
   return {
@@ -84,7 +108,7 @@ const forgotPassword = async (payload: { email: string }) => {
   const resetPassToken = jwtHelpers.generateToken(
     { email: userData.email, role: userData.role },
     config.jwt.reset_pass_secret as Secret,
-    config.jwt.reset_pass_token_expires_in as string
+    config.jwt.reset_pass_token_expires_in as string,
   );
 
   const resetPassLink =
@@ -114,7 +138,7 @@ const resetPassword = async (payload: {
 
   const isValidToken = jwtHelpers.verifyToken(
     payload.token,
-    config.jwt.reset_pass_secret as Secret
+    config.jwt.reset_pass_secret as Secret,
   );
 
   if (!isValidToken) {
@@ -142,7 +166,7 @@ const resetPassword = async (payload: {
 const changePassword = async (
   userId: string,
   newPassword: string,
-  oldPassword: string
+  oldPassword: string,
 ) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -171,58 +195,8 @@ const changePassword = async (
   return { message: "Password changed successfully" };
 };
 
-const signup = async (payload: User) => {
-  try {
-    const result = await prisma.$transaction(async (tx) => {
-      const existingUser = await tx.user.findFirst({
-        where: { email: payload.email },
-      });
-      if (existingUser) {
-        throw new ApiError(httpStatus.CONFLICT, " email already exists");
-      }
-
-      const phoneExist = await tx.user.findFirst({
-        where: { phone: payload.phone },
-      });
-      if (phoneExist) {
-        throw new ApiError(httpStatus.CONFLICT, "phone already exists");
-      }
-
-      if (!payload.password) {
-        throw new ApiError(
-          httpStatus.BAD_REQUEST,
-          "a temporary password is required"
-        );
-      }
-      if (existingUser) {
-        throw new ApiError(400, "This  phone or email already exists");
-      }
-
-      const hashedPassword: string = await bcrypt.hash(payload.password, 12);
-      const userData = {
-        ...payload,
-        password: hashedPassword,
-      };
-
-      //create user
-      const user = await tx.user.create({
-        data: userData,
-      });
-
-      return { message: "signing up successfully" };
-    });
-    return result;
-  } catch (error: any) {
-    console.log("error", error);
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      error?.message || "something went wrong"
-    );
-  }
-};
-
 export const AuthServices = {
-  signup,
+  createUser,
   loginUser,
   changePassword,
   forgotPassword,

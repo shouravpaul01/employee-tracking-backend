@@ -5,6 +5,16 @@ import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import { AuthServices } from "./auth.service";
 
+const createUser = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthServices.createUser(req.body);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Successfully created a user",
+    data: result,
+  });
+});
 const loginUser = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthServices.loginUser(req.body);
 
@@ -65,21 +75,13 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
     data: null,
   });
 });
-const signup = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthServices.signup(req.body);
 
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "Signup success",
-    data: result,
-  });
-});
 
 export const AuthControllers = {
+  createUser,
   loginUser,
   changePassword,
   forgotPassword,
   resetPassword,
-  signup,
+ 
 };
