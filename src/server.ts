@@ -1,10 +1,8 @@
 import { createServer } from "http";
 import app from "./app";
 import config from "./config";
-// import "./helpars/redis";
-import { initializeCronJobs } from "./jobs";
 import { initializeSocket } from "./helpers/socket";
-// import cron from "node-cron";
+import { initiateSuperAdmin } from "./app/db/db";
 const httpServer = createServer(app);
 initializeSocket(httpServer);
 // Main function to start the server
@@ -15,7 +13,7 @@ function main() {
       `http://localhost:${config.port}`
     );
 
-    // initializeCronJobs();
+    initiateSuperAdmin();
   });
 
   // Graceful shutdown function

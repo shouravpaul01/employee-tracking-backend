@@ -11,16 +11,17 @@ model User {
   id     String     @id @default(auto()) @map("_id") @db.ObjectId
   name   String
   email  String     @unique
-  phone  String?    @unique
+  phone  String?
   photo  String?
-  role   UserRole
+  role   UserRole   @default(EMPLOYEE)
   status UserStatus @default(ACTIVE)
 
-  isDeleted         Boolean            @default(false)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  credentials       Credential[]
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   assignedEmployees AssignedEmployee[]
+  credential        Credential?
 
   @@map("users")
 }
@@ -32,25 +33,28 @@ model Credential {
   otpExpireAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  userId      String    @db.ObjectId
-  user        User      @relation(fields: [userId], references: [id])
 
-  @@map("Credentials")
+  userId String @unique @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@map("credentials")
 }
 
 model Project {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  name            String
-  clientName      String
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  clientName String
+
   propertyAddress String
   accessInfo      String?
   notes           String?
   status          ProjectStatus
 
-  lastWorkingDate DateTime
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  expenses        Expenses[]
+  lastWorkingDate   DateTime
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  expenses          Expenses[]
+  assignedEmployees AssignedEmployee[]
 
   @@map("projects")
 }
@@ -58,12 +62,15 @@ model Project {
 model AssignedEmployee {
   id             String               @id @default(auto()) @map("_id") @db.ObjectId
   role           AssignedEmployeeRole
-  checkIn        DateTime
-  checkOut       DateTime
-  breakTimeStart DateTime
-  breakTimeEnd   DateTime
-  userId         String               @db.ObjectId
-  user           User                 @relation(fields: [userId], references: [id])
+  checkIn        DateTime?
+  checkOut       DateTime?
+  breakTimeStart DateTime?
+  breakTimeEnd   DateTime?
+  status         AttendanceStatus     @default(NOT_STARTED)
+  projectId      String               @db.ObjectId
+  project        Project              @relation(fields: [projectId], references: [id])
+  employeeId     String               @db.ObjectId
+  employee       User                 @relation(fields: [employeeId], references: [id])
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 
@@ -90,6 +97,14 @@ enum ExpensesStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum AttendanceStatus {
+  NOT_STARTED
+  CHECKED_IN
+  ON_BREAK
+  BREAK_ENDED
+  CHECKED_OUT
 }
 
 enum AssignedEmployeeRole {

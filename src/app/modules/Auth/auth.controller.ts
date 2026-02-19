@@ -5,15 +5,10 @@ import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import { AuthServices } from "./auth.service";
 
-const createUser = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthServices.createUser(req.body);
+const register = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthServices.register(req.body);
 
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "Successfully created a user",
-    data: result,
-  });
+
 });
 const loginUser = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthServices.loginUser(req.body);
@@ -32,24 +27,6 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
     success: true,
     message: result.message,
     data: result.accessToken ? { accessToken: result.accessToken } : {},
-  });
-});
-
-// change password
-const changePassword = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id;
-  const { oldPassword, newPassword } = req.body;
-
-  const result = await AuthServices.changePassword(
-    userId,
-    newPassword,
-    oldPassword
-  );
-  sendResponse(res, {
-    success: true,
-    statusCode: 201,
-    message: "Password changed successfully",
-    data: result,
   });
 });
 
@@ -75,13 +52,29 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
     data: null,
   });
 });
+// change password
+const changePassword = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const { changePassword, newPassword } = req.body;
 
+  const result = await AuthServices.changePassword(
+    userId,
+    newPassword,
+    changePassword,
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Password changed successfully",
+    data: result,
+  });
+});
 
 export const AuthControllers = {
-  createUser,
+  register,
   loginUser,
-  changePassword,
+
   forgotPassword,
   resetPassword,
- 
+  changePassword,
 };

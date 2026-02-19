@@ -1,32 +1,7 @@
-import { UserRole } from "@prisma/client";
 import { z } from "zod";
 
-const changePasswordValidationSchema = z.object({
-  body: z.object({
-    oldPassword: z.string().min(6),
-    newPassword: z.string().min(6),
-  }),
-});
-const loginValidationSchema = z.object({
-  body: z.object({
-    email: z.string().email(),
-    password: z.string(),
-  }),
-});
-const forgotPasswordSchema = z.object({
-  body: z.object({
-    email: z.string().email(),
-  }),
-});
-const resetPasswordSChema = z.object({
-  body: z.object({
-    token: z.string(),
-    userId: z.string(),
-    password: z.string(),
-  }),
-});
 
-const CreateUser = z.object({
+const createUser = z.object({
   body: z.object({
     name: z.string().trim().nonempty("Name is required."),
     email: z.string().nonempty("Email is required.").email({
@@ -36,11 +11,33 @@ const CreateUser = z.object({
     password: z.string().nonempty("Password is required.")
   }),
 });
-
+const login = z.object({
+  body: z.object({
+    email: z.string().nonempty("Email is required.").email("Valid email is required."),
+    password: z.string().nonempty("Password is required."),
+  }),
+});
+const forgotPassword = z.object({
+  body: z.object({
+     email: z.string().nonempty("Email is required.").email("Valid email is required."),
+  }),
+});
+const resetPassword = z.object({
+  body: z.object({
+    token: z.string().nonempty("Token is required."),
+    password: z.string().nonempty("Password is required."),
+  }),
+});
+const changePassword= z.object({
+  body: z.object({
+    currentPassword: z.string().nonempty("Current password is required."),
+    newPassword: z.string().nonempty("New password is required."),
+  }),
+});
 export const AuthValidations = {
-  changePasswordValidationSchema,
-  loginValidationSchema,
-  resetPasswordSChema,
-  forgotPasswordSchema,
-  CreateUser,
+  login,
+  forgotPassword,
+  resetPassword,
+  createUser,
+  changePassword
 };
