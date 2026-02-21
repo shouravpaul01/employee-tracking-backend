@@ -3,6 +3,7 @@ import exp from "constants";
 import prisma from "../../../shared/prisma";
 import ApiError from "../../../errors/ApiErrors";
 import httpStatus from "http-status";
+import ApiPathError from "../../../errors/ApiPathError";
 
 const assignedEmployee = async (payload: AssignedEmployee) => {
   const existingProject = await prisma.project.findUnique({
@@ -10,6 +11,24 @@ const assignedEmployee = async (payload: AssignedEmployee) => {
   });
   if (!existingProject) {
     throw new ApiError(httpStatus.NOT_FOUND, "Project not found.");
+  }
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const existingAssignedEmployee = await prisma.assignedEmployee.findFirst({
+    where: {
+      employeeId: payload.employeeId,
+      projectId: payload.projectId,
+      createdAt: {
+        gte: startOfDay,
+      },
+    },
+  });
+  if (existingAssignedEmployee) {
+    throw new ApiPathError(
+      httpStatus.CONFLICT,
+      "employeeId",
+      "This employee has already been assigned to this project today.",
+    );
   }
   const result = await prisma.assignedEmployee.create({ data: { ...payload } });
   await prisma.project.update({

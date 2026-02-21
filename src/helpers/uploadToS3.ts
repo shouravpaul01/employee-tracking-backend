@@ -11,7 +11,7 @@ import httpStatus from "http-status";
 
 // Configure DigitalOcean Spaces
 const s3 = new S3Client({
-  region: "nyc3",
+  region: "us-east-1",
   endpoint: config.s3.do_space_endpoint,
   credentials: {
     accessKeyId: config.s3.do_space_accesskey || "", // Ensure this is never undefined
