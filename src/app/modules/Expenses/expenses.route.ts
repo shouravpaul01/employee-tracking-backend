@@ -30,4 +30,4 @@ router.get(
   ExpensesController.getAllExpensesByEmployee,
 );
 
-export default router;
+export const ExpensesRoute= router;

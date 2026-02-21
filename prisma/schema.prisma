@@ -43,7 +43,7 @@ model Credential {
 
 model Project {
   id         String @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
+  name       String @unique
   clientName String
 
   propertyAddress String
@@ -51,12 +51,13 @@ model Project {
   notes           String?
   status          ProjectStatus
 
-  lastWorkingDate   DateTime
+  lastWorkingDate   DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   expenses          Expenses[]
   assignedEmployees AssignedEmployee[]
 
+  @@index([clientName, status, lastWorkingDate])
   @@map("projects")
 }
 

@@ -2,8 +2,9 @@ import express from "express";
 
 import { AuthRoutes } from "../modules/Auth/auth.routes";
 import { UserRoutes } from "../modules/User/user.route";
-import { ImageRoutes } from "../modules/Image/Image.route";
 import { AssignedEmployeeRoute } from "../modules/AssignedEmployee/assignedEmployee.route";
+import { ProjectRoute } from "../modules/Project/project.route";
+import { ExpensesRoute } from "../modules/Expenses/expenses.route";
 
 
 const router = express.Router();
@@ -17,13 +18,17 @@ const moduleRoutes = [
     path: "/user",
     route: UserRoutes,
   },
+  {
+    path: "/projects",
+    route: ProjectRoute,
+  },
  {
     path: "/assigned-employee",
     route: AssignedEmployeeRoute,
   },
-  {
-    path: "/files",
-    route: ImageRoutes,
+ {
+    path: "/expenses",
+    route: ExpensesRoute,
   },
 ];
 
