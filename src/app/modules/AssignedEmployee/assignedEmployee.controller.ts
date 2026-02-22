@@ -14,8 +14,12 @@ const assignedEmployee = catchAsync(async (req, res) => {
   });
 });
 const updateCheckInOutBreakInOutTime = catchAsync(async (req, res) => {
-    const {status,projectId}=req.query
-  const result = await AssignedEmployeeService.updateCheckInOutBreakInOutTime(req.user.id,projectId as string,status as AttendanceStatus);
+  const { status, projectId } = req.query;
+  const result = await AssignedEmployeeService.updateCheckInOutBreakInOutTime(
+    req.user.id,
+    projectId as string,
+    status as AttendanceStatus,
+  );
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -23,4 +27,22 @@ const updateCheckInOutBreakInOutTime = catchAsync(async (req, res) => {
     data: result.data,
   });
 });
-export const AssignedEmployeeController = { assignedEmployee ,updateCheckInOutBreakInOutTime};
+const getProjectsByAssignedDate = catchAsync(async (req, res) => {
+  const { date } = req.query;
+
+  const result = await AssignedEmployeeService.getProjectsByAssignedDate(
+    date as string,
+    req.user.id,
+  );
+
+  res.status(200).json({
+    success: true,
+    message: "Assigned Projects fetched successfully",
+    data: result,
+  });
+});
+export const AssignedEmployeeController = {
+  assignedEmployee,
+  updateCheckInOutBreakInOutTime,
+  getProjectsByAssignedDate,
+};

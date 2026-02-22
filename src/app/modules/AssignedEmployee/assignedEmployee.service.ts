@@ -1,4 +1,4 @@
-import { AssignedEmployee, AttendanceStatus } from "@prisma/client";
+import { AssignedEmployee, AttendanceStatus, UserRole } from "@prisma/client";
 import exp from "constants";
 import prisma from "../../../shared/prisma";
 import ApiError from "../../../errors/ApiErrors";
@@ -138,8 +138,59 @@ const updateCheckInOutBreakInOutTime = async (
 
   return { data: updated, message };
 };
+const getProjectsByAssignedDate = async (date: string, userId: string) => {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
 
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+  const existingUser = await prisma.user.findUnique({ where: { id: userId } });
+  if (!existingUser) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found!");
+  }
+  const whereCondition: any = {
+    assignedEmployees: {
+      some: {
+        createdAt: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+        ...(existingUser.role === UserRole.EMPLOYEE && { employeeId: userId }),
+      },
+    },
+  };
+
+  const projects = await prisma.project.findMany({
+    where: whereCondition,
+    include: {
+      assignedEmployees: {
+        where: {
+          createdAt: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
+          ...(existingUser.role === UserRole.EMPLOYEE && {
+            employeeId: userId,
+          }),
+        },
+        include: {
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+      expenses: true,
+    },
+  });
+
+  return projects;
+};
 export const AssignedEmployeeService = {
   assignedEmployee,
   updateCheckInOutBreakInOutTime,
+  getProjectsByAssignedDate
 };

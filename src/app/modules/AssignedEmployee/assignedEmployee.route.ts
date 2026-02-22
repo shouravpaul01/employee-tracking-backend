@@ -12,5 +12,14 @@ router.post(
   validateRequest(AssignedEmployeeValidation.assignedEmployee),
   AssignedEmployeeController.assignedEmployee,
 );
-router.patch("/update-attendance-time",auth(UserRole.EMPLOYEE),AssignedEmployeeController.updateCheckInOutBreakInOutTime)
+router.patch(
+  "/update-attendance-time",
+  auth(UserRole.EMPLOYEE),
+  AssignedEmployeeController.updateCheckInOutBreakInOutTime,
+);
+router.get(
+  "/assigned-projects",
+  auth(UserRole.ADMIN, UserRole.EMPLOYEE),
+  AssignedEmployeeController.getProjectsByAssignedDate,
+);
 export const AssignedEmployeeRoute = router;

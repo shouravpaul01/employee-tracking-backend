@@ -2,9 +2,15 @@ import httpStatus from "http-status";
 import ApiError from "../../../errors/ApiErrors";
 import prisma from "../../../shared/prisma";
 import QueryBuilder from "../../../helpers/queryBuilder";
+import ApiPathError from "../../../errors/ApiPathError";
 
 const createProject = async (payload: any) => {
-    const existingName=await prisma.project.findUnique({where:{name:payload.name}})
+  const existingName = await prisma.project.findUnique({
+    where: { name: payload.name },
+  });
+  if (existingName) {
+    throw new ApiPathError(httpStatus.CONFLICT,"name","Already exists the name.")
+  }
   return prisma.project.create({
     data: {
       ...payload,
