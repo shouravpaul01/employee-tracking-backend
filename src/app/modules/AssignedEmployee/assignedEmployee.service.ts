@@ -4,6 +4,7 @@ import prisma from "../../../shared/prisma";
 import ApiError from "../../../errors/ApiErrors";
 import httpStatus from "http-status";
 import ApiPathError from "../../../errors/ApiPathError";
+import { NotificationService } from "../Notification/notification.service";
 
 const assignedEmployee = async (payload: AssignedEmployee) => {
   const existingProject = await prisma.project.findUnique({
@@ -35,6 +36,14 @@ const assignedEmployee = async (payload: AssignedEmployee) => {
     where: { id: existingProject.id },
     data: { lastWorkingDate: new Date() },
   });
+  await NotificationService.createNotification({
+    title: "New Project Assigned",
+    message: `You have been assigned to project: ${existingProject.name}`,
+    type: "PROJECT",
+    referenceId: existingProject.id,
+    referenceType: "ASSIGNMENT",
+    receiverId: payload.employeeId,
+  });
   return result;
 };
 const updateCheckInOutBreakInOutTime = async (
@@ -48,6 +57,7 @@ const updateCheckInOutBreakInOutTime = async (
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
+  //  find today's assignment
   const assignedEmployee = await prisma.assignedEmployee.findFirst({
     where: {
       employeeId: userId,
@@ -56,13 +66,17 @@ const updateCheckInOutBreakInOutTime = async (
         gte: startOfDay,
       },
     },
+    include: {
+      employee: true,
+      project: true,
+    },
   });
 
   if (!assignedEmployee) {
     throw new ApiError(httpStatus.NOT_FOUND, "No project assigned for today");
   }
 
-  let data: any = {};
+  let data: Partial<AssignedEmployee> = {};
 
   switch (status) {
     case "CHECKED_IN":
@@ -72,10 +86,7 @@ const updateCheckInOutBreakInOutTime = async (
           "You have already checked in",
         );
       }
-      data = {
-        checkIn: now,
-        status: "CHECKED_IN",
-      };
+      data = { checkIn: now, status: "CHECKED_IN" };
       message = "Checked in successfully";
       break;
 
@@ -86,10 +97,7 @@ const updateCheckInOutBreakInOutTime = async (
           "Please check in before starting a break",
         );
       }
-      data = {
-        breakTimeStart: now,
-        status: "ON_BREAK",
-      };
+      data = { breakTimeStart: now, status: "ON_BREAK" };
       message = "Break started";
       break;
 
@@ -97,10 +105,7 @@ const updateCheckInOutBreakInOutTime = async (
       if (assignedEmployee.status !== "ON_BREAK") {
         throw new ApiError(httpStatus.BAD_REQUEST, "No active break to end");
       }
-      data = {
-        breakTimeEnd: now,
-        status: "CHECKED_IN",
-      };
+      data = { breakTimeEnd: now, status: "CHECKED_IN" };
       message = "Break ended";
       break;
 
@@ -114,10 +119,7 @@ const updateCheckInOutBreakInOutTime = async (
           "You must check in before checking out",
         );
       }
-      data = {
-        checkOut: now,
-        status: "CHECKED_OUT",
-      };
+      data = { checkOut: now, status: "CHECKED_OUT" };
       message = "Checked out successfully";
       break;
 
@@ -125,15 +127,21 @@ const updateCheckInOutBreakInOutTime = async (
       throw new ApiError(httpStatus.BAD_REQUEST, "Invalid status");
   }
 
+  //  update assignment
   const updated = await prisma.assignedEmployee.update({
-    where: {
-      id: assignedEmployee.id,
-      projectId: projectId,
-      createdAt: {
-        gte: startOfDay,
-      },
-    },
+    where: { id: assignedEmployee.id },
     data,
+  });
+
+  // send notification to admins
+  await NotificationService.createNotification({
+    title: `Attendance Update: ${status}`,
+    message: `Employee ${assignedEmployee.employee.name} has ${message.toLowerCase()} on project ${assignedEmployee.project.name}.`,
+    type: "ATTENDANCE",
+    senderId: userId,
+    referenceId: assignedEmployee.id,
+    referenceType: "ASSIGNMENT",
+    receiverRole: UserRole.ADMIN, // 🔥 all admins will receive
   });
 
   return { data: updated, message };
@@ -192,5 +200,5 @@ const getProjectsByAssignedDate = async (date: string, userId: string) => {
 export const AssignedEmployeeService = {
   assignedEmployee,
   updateCheckInOutBreakInOutTime,
-  getProjectsByAssignedDate
+  getProjectsByAssignedDate,
 };

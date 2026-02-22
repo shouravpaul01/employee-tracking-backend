@@ -5,6 +5,7 @@ dotenv.config({ path: path.join(process.cwd(), ".env") });
 
 export default {
   env: process.env.NODE_ENV,
+  admin_email:process.env.ADMIN_EMAIL,
   frontend_url: process.env.FRONTEND_URL,
   backend_image_url: process.env.BACKEND_IMAGE_URL,
   stripe_secret_key: process.env.STRIPE_SECRET_KEY,

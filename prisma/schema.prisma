@@ -24,6 +24,12 @@ model User {
   credential        Credential?
   expenses          Expenses[]
 
+  // receiver relation
+  notifications Notification[]
+
+  //  sender relation (IMPORTANT)
+  sentNotifications Notification[] @relation("NotificationSender")
+
   @@map("users")
 }
 
@@ -96,6 +102,45 @@ model Expenses {
   updatedAt       DateTime       @updatedAt
 
   @@map("expenses")
+}
+
+model Notification {
+  id      String           @id @default(auto()) @map("_id") @db.ObjectId
+  title   String
+  message String
+  type    NotificationType
+
+  // optional reference (deep linking)
+  referenceId   String?        @db.ObjectId
+  referenceType ReferenceType?
+
+  //  Receiver
+  receiverId String @db.ObjectId
+  receiver   User   @relation(fields: [receiverId], references: [id])
+
+  //  Sender 
+  senderId String? @db.ObjectId
+  sender   User?   @relation("NotificationSender", fields: [senderId], references: [id])
+
+  isRead Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([receiverId, isRead])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  EXPENSE
+  PROJECT
+  ATTENDANCE
+  SYSTEM
+}
+
+enum ReferenceType {
+  PROJECT
+  EXPENSE
+  ASSIGNMENT
 }
 
 enum ExpensesStatus {

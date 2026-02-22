@@ -1,10 +1,12 @@
-import { Expenses } from "@prisma/client";
+import { Expenses, UserRole } from "@prisma/client";
 import prisma from "../../../shared/prisma";
 import ApiPathError from "../../../errors/ApiPathError";
 import httpStatus from "http-status";
 import ApiError from "../../../errors/ApiErrors";
 import { IUpdateExpenseStatus } from "./expenses.interface";
 import QueryBuilder from "../../../helpers/queryBuilder";
+import config from "../../../config";
+import { NotificationService } from "../Notification/notification.service";
 
 const createExpenses = async (
   employeeId: string,
@@ -17,8 +19,18 @@ const createExpenses = async (
 
   const result = await prisma.expenses.create({
     data: newExpenses,
+    include: { employee: true },
   });
 
+  await NotificationService.createNotification({
+    title: "New Expense Request",
+    message: `${result?.employee?.name || "An employee"} submitted a new expense.`,
+    type: "EXPENSE",
+    senderId: employeeId,
+    referenceId: result.id,
+    referenceType: "EXPENSE",
+    receiverRole: UserRole.ADMIN, 
+  });
   return result;
 };
 const getAllExpenses = async (query: Record<string, undefined>) => {
@@ -49,14 +61,17 @@ const getSingleExpense = async (expenseId: string) => {
 };
 const updateStatus = async (payload: IUpdateExpenseStatus) => {
   const { expenseId, status, feedback } = payload;
+
   const validStatuses = ["PENDING", "APPROVED", "REJECTED"] as const;
+
   if (!validStatuses.includes(status)) {
     throw new ApiPathError(
       httpStatus.BAD_REQUEST,
       "status",
-      `Invalid status. Must be one of: ${validStatuses.join(", ")}.`,
+      `Invalid status. Must be one of: ${validStatuses.join(", ")}.`
     );
   }
+
   const expense = await prisma.expenses.findUnique({
     where: { id: expenseId },
   });
@@ -69,16 +84,38 @@ const updateStatus = async (payload: IUpdateExpenseStatus) => {
     throw new ApiPathError(
       httpStatus.BAD_REQUEST,
       "feedback",
-      "Feedback is required when rejecting an expense.",
+      "Feedback is required when rejecting an expense."
     );
   }
 
+  //  Update expense
   const updatedExpense = await prisma.expenses.update({
     where: { id: expenseId },
     data: {
       status,
       feedback: status === "REJECTED" ? feedback : undefined,
     },
+  });
+
+  //  Send notification to employee (owner of expense)
+  let message = "";
+
+  if (status === "APPROVED") {
+    message = "Your expense request has been approved.";
+  } else if (status === "REJECTED") {
+    message = `Your expense request was rejected. Reason: ${feedback}`;
+  } else {
+    message = "Your expense status has been updated.";
+  }
+
+  await NotificationService.createNotification({
+    title: "Expense Status Updated",
+    message,
+    type: "EXPENSE",
+    senderId: undefined, 
+    referenceId: expenseId,
+    referenceType: "EXPENSE",
+    receiverId: expense.employeeId, 
   });
 
   return updatedExpense;
