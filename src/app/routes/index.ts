@@ -6,6 +6,7 @@ import { AssignedEmployeeRoute } from "../modules/AssignedEmployee/assignedEmplo
 import { ProjectRoute } from "../modules/Project/project.route";
 import { ExpensesRoute } from "../modules/Expenses/expenses.route";
 import { NotificationRoute } from "../modules/Notification/notification.route";
+import { AnalyticsRoute } from "../modules/Analytics/analytics.route";
 
 
 const router = express.Router();
@@ -16,7 +17,7 @@ const moduleRoutes = [
     route: AuthRoutes,
   },
   {
-    path: "/user",
+    path: "/users",
     route: UserRoutes,
   },
   {
@@ -34,6 +35,10 @@ const moduleRoutes = [
    {
     path: "/notifications",
     route: NotificationRoute,
+  },
+  {
+    path: "/analytics",
+    route: AnalyticsRoute,
   },
 ];
 

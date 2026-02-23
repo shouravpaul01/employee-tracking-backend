@@ -1,54 +1,60 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import ApiPathError from "../errors/ApiPathError";
+import { Request, Response, NextFunction } from "express";
 import httpStatus from "http-status";
-import ApiError from "../errors/ApiErrors";
+import ApiError from "../../errors/ApiErrors";
+import ApiPathError from "../../errors/ApiPathError";
 
-//  ensure upload dir
+/* =========================
+   Ensure upload directory
+========================= */
 const uploadDir = path.join(process.cwd(), "uploads");
+
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-//  storage
-const storage = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, uploadDir),
-  filename: (_, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const name = path
-      .basename(file.originalname, ext)
-      .replace(/[^a-zA-Z0-9]/g, "-")
-      .toLowerCase();
+/* Storage Config */
+const storage = multer.memoryStorage()
 
-    cb(null, `${name}-${Date.now()}${ext}`);
-  },
-});
+/*Types*/
+type UploadOptions = {
+  maxCount?: number;
+  required?: boolean;
+  maxSize?: number;
+  allowedTypes?: string[];
+}
 
-//  default config
+type FieldOption = {
+  name: string;
+  maxCount?: number;
+  required?: boolean;
+};
+
+/* Default */
 const DEFAULTS = {
   maxSize: 5 * 1024 * 1024,
   allowedTypes: ["image/jpeg", "image/png", "image/webp"],
 };
 
-//  file filter
+/* File Filter */
 const fileFilter = (allowedTypes: string[]) => {
   return (_: any, file: Express.Multer.File, cb: any) => {
-    if (allowedTypes.includes(file.mimetype)) cb(null, true);
-    else cb(new Error("Invalid file type"));
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new ApiError(httpStatus.BAD_REQUEST, "Invalid file type"));
+    }
   };
 };
 
-//  core uploader factory
+/*  Core Uploader Factory */
 const createUploader = (options: {
   type: "single" | "array" | "fields";
   fieldName?: string;
-  fields?: { name: string; maxCount?: number; required?: boolean }[];
-  maxCount?: number;
-  required?: boolean;
-  maxSize?: number;
-  allowedTypes?: string[];
-}) => {
+  fields?: FieldOption[];
+} & UploadOptions) => {
   const upload = multer({
     storage,
     limits: { fileSize: options.maxSize || DEFAULTS.maxSize },
@@ -65,53 +71,65 @@ const createUploader = (options: {
     middleware = upload.fields(options.fields!);
   }
 
-  return (req: any, res: any, next: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     middleware(req, res, (err: any) => {
       if (err) {
-          throw new ApiError(httpStatus.NOT_FOUND,err.message)
+        return next(
+          new ApiError(
+            httpStatus.BAD_REQUEST,
+            err.message || "File upload error"
+          )
+        );
       }
 
-      //  required check (simple)
+      /* Required Validation */
       if (options.required) {
         const file = req.file || req.files;
+
         if (!file || (Array.isArray(file) && file.length === 0)) {
-          throw new ApiPathError(
-            httpStatus.NOT_FOUND,
-            options.fieldName!,
-            "File is required",
+          return next(
+            new ApiPathError(
+              httpStatus.BAD_REQUEST,
+              options.fieldName || "file",
+              "File is required"
+            )
           );
         }
       }
 
-      //  fields required check
+      /* Fields Validation*/
       if (options.fields) {
         for (const field of options.fields) {
           if (field.required) {
-            const files = req.files?.[field.name];
+            const files = (req.files as any)?.[field.name];
             if (!files || files.length === 0) {
-              throw new ApiPathError(
-                httpStatus.NOT_FOUND,
-                field.name!,
-                `${field.name} is required`,
+              return next(
+                new ApiPathError(
+                  httpStatus.BAD_REQUEST,
+                  field.name,
+                  `${field.name} is required`
+                )
               );
             }
           }
         }
       }
 
+    
+
       next();
     });
   };
 };
 
-//  export
+
 export const fileUploader = {
-  single: (fieldName: string, options?: any) =>
+  single: (fieldName: string, options?: UploadOptions) =>
     createUploader({ type: "single", fieldName, ...options }),
 
-  array: (fieldName: string, options?: any) =>
+  array: (fieldName: string, options?: UploadOptions) =>
     createUploader({ type: "array", fieldName, ...options }),
 
-  fields: (fields: any[], options?: any) =>
+  fields: (fields: FieldOption[], options?: UploadOptions) =>
     createUploader({ type: "fields", fields, ...options }),
 };

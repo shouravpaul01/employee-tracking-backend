@@ -3,35 +3,46 @@ import app from "./app";
 import config from "./config";
 import { initializeSocket } from "./helpers/socket";
 import { initiateSuperAdmin } from "./app/db/db";
+
 const httpServer = createServer(app);
 initializeSocket(httpServer);
-// Main function to start the server
-function main() {
-  const server = httpServer.listen(Number(config.port), () => {
-    console.log(
-      "Server is running on port ==>",
-      `http://localhost:${config.port}`
-    );
 
+function main() {
+  const port = Number(config.port) || 5000;
+
+  const server = httpServer.listen(port, () => {
+    console.log(`🚀 Server is running on ==> http://localhost:${port}`);
     initiateSuperAdmin();
   });
 
-  // Graceful shutdown function
-  const exitHandler = () => {
-    if (server) {
-      server.close(() => {
-        console.log("Server closed");
-      });
-    }
-    process.exit(1);
+  /**
+    Handle unexpected errors WITHOUT killing dev server instantly
+   */
+
+  process.on("uncaughtException", (err) => {
+    console.error(" UNCAUGHT EXCEPTION:", err);
+  });
+
+  process.on("unhandledRejection", (err) => {
+    console.error(" UNHANDLED REJECTION:", err);
+  });
+
+  /**
+   *  Graceful shutdown (Ctrl + C / server stop)
+   */
+  const shutdown = () => {
+    console.log("🛑 Shutting down server...");
+
+    server.close(() => {
+      console.log(" Server closed successfully");
+      process.exit(0);
+    });
   };
 
-  // Handle uncaught exceptions and unhandled promise rejections
-  process.on("uncaughtException", exitHandler);
-  process.on("unhandledRejection", exitHandler);
+  process.on("SIGINT", shutdown);  // Ctrl + C
+  process.on("SIGTERM", shutdown); // deployment stop
 }
 
-// Start the server
 main();
 
 export default app;

@@ -50,7 +50,7 @@ const deleteUser = async (id: string) => {
 };
 
 const getAllUsers = async (queryParams: Record<string, any>) => {
-  try {
+  
     const queryBuilder = new QueryBuilder(prisma.user, queryParams);
     const users = await queryBuilder
       .search(["name", "email", "phone"])
@@ -61,19 +61,12 @@ const getAllUsers = async (queryParams: Record<string, any>) => {
         isDeleted: false,
       })
       .sort()
-      .include({ hospital: true })
       .paginate()
       .execute();
 
     const meta = await queryBuilder.countTotal();
     return { data: users, meta };
-  } catch (error) {
-  
-    return {
-      meta: { page: 1, limit: 10, total: 0, totalPage: 0 },
-      data: [],
-    };
-  }
+ 
 };
 
 // get user profile
@@ -141,7 +134,7 @@ const getMe = async (userId: string) => {
 
     return {
       user:existingUser,
-      dashboard: {
+      summery: {
         todayAssignedProjects,
         monthlyWorkingHours: Number(totalHours.toFixed(2)),
         totalApprovedExpenses: approvedExpenses._sum.amount || 0,
@@ -186,7 +179,7 @@ const getMe = async (userId: string) => {
 
     return {
       user:existingUser,
-      dashboard: {
+      summery: {
         totalProjects,
         totalEmployeeMonthlyHours: Number(totalEmployeeHours.toFixed(2)),
         totalApprovedExpenses: totalApprovedExpenses._sum.amount || 0,

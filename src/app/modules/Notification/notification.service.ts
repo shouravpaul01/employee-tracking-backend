@@ -1,6 +1,3 @@
-import httpStatus from "http-status";
-import ApiError from "../../../errors/ApiErrors";
-import { ICreateNotification } from "./notification.interface";
 import prisma from "../../../shared/prisma";
 import QueryBuilder from "../../../helpers/queryBuilder";
 import { UserRole } from "@prisma/client";
@@ -59,10 +56,9 @@ const createNotification = async ({
 const getAllNotificationByUser = async (userId:string,query: Record<string, undefined>) => {
   const findQuery={receiverId:userId,...query}
   const queryBuilder = new QueryBuilder(prisma.notification, findQuery);
-  const result = queryBuilder
+  const result =await queryBuilder
     .filter()
     .sort()
-    .include({ employee: true, project: true })
     .paginate()
     .execute();
   const meta = await queryBuilder.countTotal();

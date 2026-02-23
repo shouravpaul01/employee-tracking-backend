@@ -11,7 +11,7 @@ const getAllNotificationByUser = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: "Notification fetched successfully.",
-    data: result,
+   ... result,
   });
 });
 

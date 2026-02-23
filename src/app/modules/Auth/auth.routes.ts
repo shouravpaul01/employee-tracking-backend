@@ -22,7 +22,7 @@ router.post(
   AuthControllers.loginUser,
 );
 
-router.post(
+router.patch(
   "/change-password",
   validateRequest(AuthValidations.changePassword),
   auth(),

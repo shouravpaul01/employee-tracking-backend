@@ -48,9 +48,23 @@ const assignedEmployee = async (payload: AssignedEmployee) => {
 };
 const updateCheckInOutBreakInOutTime = async (
   userId: string,
-  projectId: string,
+  assignedId: string,
   status: AttendanceStatus,
 ) => {
+  const validStatuses = [
+    "CHECKED_IN",
+    "ON_BREAK",
+    "BREAK_ENDED",
+    "CHECKED_OUT",
+  ] as AttendanceStatus[];
+
+  if (!validStatuses.includes(status)) {
+    throw new ApiPathError(
+      httpStatus.BAD_REQUEST,
+      "status",
+      `Invalid status. Must be one of: ${validStatuses.join(", ")}.`,
+    );
+  }
   const now = new Date();
   let message = "";
 
@@ -60,11 +74,8 @@ const updateCheckInOutBreakInOutTime = async (
   //  find today's assignment
   const assignedEmployee = await prisma.assignedEmployee.findFirst({
     where: {
+      id:assignedId,
       employeeId: userId,
-      projectId: projectId,
-      createdAt: {
-        gte: startOfDay,
-      },
     },
     include: {
       employee: true,
@@ -141,16 +152,24 @@ const updateCheckInOutBreakInOutTime = async (
     senderId: userId,
     referenceId: assignedEmployee.id,
     referenceType: "ASSIGNMENT",
-    receiverRole: UserRole.ADMIN, // 🔥 all admins will receive
+    receiverRole: UserRole.ADMIN,
   });
 
   return { data: updated, message };
 };
-const getProjectsByAssignedDate = async (date: string, userId: string) => {
-  const startOfDay = new Date(date);
+const getProjectsByAssignedDate = async (dateStr: string, userId: string) => {
+    if (!dateStr) {
+    throw new ApiError(400, "Date query parameter is required");
+  }
+
+  const parsedDate = new Date(dateStr);
+  if (isNaN(parsedDate.getTime())) {
+    throw new ApiError(400, "Invalid date format");
+  }
+  const startOfDay = new Date(dateStr);
   startOfDay.setHours(0, 0, 0, 0);
 
-  const endOfDay = new Date(date);
+  const endOfDay = new Date(dateStr);
   endOfDay.setHours(23, 59, 59, 999);
   const existingUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!existingUser) {

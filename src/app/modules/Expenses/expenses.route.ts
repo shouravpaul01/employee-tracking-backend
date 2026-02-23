@@ -4,23 +4,27 @@ import auth from "../../middlewares/auth";
 import { UserRole } from "@prisma/client";
 import validateRequest from "../../middlewares/validateRequest";
 import { ExpensesValidation } from "./expenses.validation";
+import { fileUploader } from "../../middlewares/fileUploader";
+import { parseBodyData } from "../../middlewares/parseBodyData";
 
 const router = Router();
 
-router.post("/", auth(UserRole.EMPLOYEE),validateRequest(ExpensesValidation.createExpense), ExpensesController.createExpense);
+router.post(
+  "/",
+  auth(UserRole.EMPLOYEE),
+  fileUploader.single("receiptDocImage",{required:true}),
+  parseBodyData,
+  validateRequest(ExpensesValidation.createExpense),
+  ExpensesController.createExpense,
+);
 
 router.get("/", auth(UserRole.ADMIN), ExpensesController.getAllExpenses);
 
 
-router.get(
-  "/:id",
-  auth(UserRole.EMPLOYEE, UserRole.ADMIN),
-  ExpensesController.getSingleExpense,
-);
 
 router.patch(
   "/:id/status",
-   auth(UserRole.ADMIN),
+  auth(UserRole.ADMIN),
   ExpensesController.updateExpenseStatus,
 );
 
@@ -29,5 +33,9 @@ router.get(
   auth(UserRole.EMPLOYEE),
   ExpensesController.getAllExpensesByEmployee,
 );
-
-export const ExpensesRoute= router;
+router.get(
+  "/:id",
+  auth(UserRole.EMPLOYEE, UserRole.ADMIN),
+  ExpensesController.getSingleExpense,
+);
+export const ExpensesRoute = router;

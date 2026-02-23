@@ -20,11 +20,10 @@ const createProject = async (payload: any) => {
 
 const getAllProjects = async (query: Record<string, undefined>) => {
   const queryBuilder = new QueryBuilder(prisma.project, query);
-  const result = queryBuilder
+  const result =await queryBuilder
     .search(["name", "clientName", "propertyAddress"])
     .filter()
     .sort()
-    .include({ employee: true, project: true })
     .paginate()
     .execute();
   const meta = await queryBuilder.countTotal();

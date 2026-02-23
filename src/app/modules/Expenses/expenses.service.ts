@@ -7,14 +7,25 @@ import { IUpdateExpenseStatus } from "./expenses.interface";
 import QueryBuilder from "../../../helpers/queryBuilder";
 import config from "../../../config";
 import { NotificationService } from "../Notification/notification.service";
+import { uploadFileToS3 } from "../../../helpers/uploadToS3";
 
 const createExpenses = async (
   employeeId: string,
-  payload: Omit<Expenses, "employeeId">,
+  file: Express.Multer.File,
+  payload: Omit<Expenses, "employeeId" | "receiptDocImage">
 ) => {
+  let fileUrl = "";
+console.log(file,'ksdk')
+  
+  if (file) {
+    const res = await uploadFileToS3(file);
+    fileUrl=res.fileUrl
+  }
+
   const newExpenses = {
     employeeId,
     ...payload,
+    receiptDocImage: fileUrl, 
   };
 
   const result = await prisma.expenses.create({
@@ -22,6 +33,7 @@ const createExpenses = async (
     include: { employee: true },
   });
 
+  //  Notification
   await NotificationService.createNotification({
     title: "New Expense Request",
     message: `${result?.employee?.name || "An employee"} submitted a new expense.`,
@@ -29,13 +41,14 @@ const createExpenses = async (
     senderId: employeeId,
     referenceId: result.id,
     referenceType: "EXPENSE",
-    receiverRole: UserRole.ADMIN, 
+    receiverRole: UserRole.ADMIN,
   });
+
   return result;
 };
 const getAllExpenses = async (query: Record<string, undefined>) => {
   const queryBuilder = new QueryBuilder(prisma.expenses, query);
-  const result = queryBuilder
+  const result =await queryBuilder
     .filter()
     .sort()
     .include({ employee: true, project: true })
@@ -138,7 +151,7 @@ const getAllExpensesByEmployee = async (
   // Aggregation: total amount per status
   const totals = await prisma.expenses.groupBy({
     by: ["status"],
-    where: findQuery,
+    where: {employeeId},
     _sum: {
       amount: true,
     },

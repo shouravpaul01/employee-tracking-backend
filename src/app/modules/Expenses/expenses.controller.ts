@@ -5,7 +5,11 @@ import { ExpensesService } from "./expenses.service";
 import { ExpensesStatus } from "@prisma/client";
 
 const createExpense = catchAsync(async (req, res) => {
-  const result = await ExpensesService.createExpenses(req.user.id, req.body);
+  const result = await ExpensesService.createExpenses(
+    req.user.id,
+    req.file as Express.Multer.File,
+    req.body,
+  );
 
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
@@ -15,16 +19,19 @@ const createExpense = catchAsync(async (req, res) => {
   });
 });
 export const getAllExpenses = catchAsync(async (req, res) => {
-  const result = await ExpensesService.getAllExpenses(req.query as Record<string,undefined>);
+  const result = await ExpensesService.getAllExpenses(
+    req.query as Record<string, undefined>,
+  );
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: "All Expenses fetched successfully.",
-    data: result,
+    ... result,
   });
 });
 export const getSingleExpense = catchAsync(async (req, res) => {
+  
   const result = await ExpensesService.getSingleExpense(req.params.id);
 
   sendResponse(res, {
@@ -49,19 +56,22 @@ const updateExpenseStatus = catchAsync(async (req, res) => {
   });
 });
 export const getAllExpensesByEmployee = catchAsync(async (req, res) => {
-  const result = await ExpensesService.getAllExpensesByEmployee(req.user.id,req.query as Record<string,undefined>);
+  const result = await ExpensesService.getAllExpensesByEmployee(
+    req.user.id,
+    req.query as Record<string, undefined>,
+  );
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: "All Expenses fetched successfully.",
-    data: result,
+    ... result,
   });
 });
-export const ExpensesController={
-    createExpense,
-    getAllExpenses,
-    getSingleExpense,
-    updateExpenseStatus,
-    getAllExpensesByEmployee
-}
+export const ExpensesController = {
+  createExpense,
+  getAllExpenses,
+  getSingleExpense,
+  updateExpenseStatus,
+  getAllExpensesByEmployee,
+};

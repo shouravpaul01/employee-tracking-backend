@@ -21,7 +21,7 @@ const getAllProjects = catchAsync(async (req, res) => {
     statusCode: httpStatus.OK,
     success: true,
     message: "Projects fetched successfully.",
-    data: result,
+    ... result,
   });
 });
 

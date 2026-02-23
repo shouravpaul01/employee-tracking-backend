@@ -13,7 +13,7 @@ router.post(
   AssignedEmployeeController.assignedEmployee,
 );
 router.patch(
-  "/update-attendance-time",
+  "/update-attendance-time/:id",
   auth(UserRole.EMPLOYEE),
   AssignedEmployeeController.updateCheckInOutBreakInOutTime,
 );

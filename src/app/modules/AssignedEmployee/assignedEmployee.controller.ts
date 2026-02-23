@@ -14,10 +14,11 @@ const assignedEmployee = catchAsync(async (req, res) => {
   });
 });
 const updateCheckInOutBreakInOutTime = catchAsync(async (req, res) => {
-  const { status, projectId } = req.query;
+  const { status } = req.query;
+  const {id}=req.params
   const result = await AssignedEmployeeService.updateCheckInOutBreakInOutTime(
     req.user.id,
-    projectId as string,
+    id as string,
     status as AttendanceStatus,
   );
   sendResponse(res, {

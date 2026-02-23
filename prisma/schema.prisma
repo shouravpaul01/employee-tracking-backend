@@ -55,7 +55,7 @@ model Project {
   propertyAddress String
   accessInfo      String?
   notes           String?
-  status          ProjectStatus
+  status          ProjectStatus @default(PENDING)
 
   lastWorkingDate   DateTime?
   createdAt         DateTime           @default(now())
@@ -96,7 +96,7 @@ model Expenses {
   amount          Float
   description     String?
   receiptDocImage String?
-  status          ExpensesStatus
+  status          ExpensesStatus @default(PENDING)
   feedback        String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -163,6 +163,7 @@ enum AssignedEmployeeRole {
 }
 
 enum ProjectStatus {
+  PENDING
   STAGING
   WALKTHROUGH
   DESTAGING

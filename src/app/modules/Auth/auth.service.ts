@@ -118,19 +118,8 @@ const forgotPassword = async (payload: { email: string }) => {
 // reset password
 const resetPassword = async (payload: {
   token: string;
-  userId: string;
   password: string;
 }) => {
-  const existingUser = await prisma.user.findUnique({
-    where: {
-      id: payload.userId,
-    },
-  });
-
-  if (!existingUser) {
-    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
-  }
-
   const isValidToken = jwtHelpers.verifyToken(
     payload.token,
     config.jwt.reset_pass_secret as Secret,
@@ -139,6 +128,17 @@ const resetPassword = async (payload: {
   if (!isValidToken) {
     throw new ApiError(httpStatus.FORBIDDEN, "Forbidden!");
   }
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      id: isValidToken.id,
+    },
+  });
+
+  if (!existingUser) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  
 
   // hash password
   const hashPassword = await bcrypt.hash(payload.password, 12);
@@ -172,7 +172,7 @@ const changePassword = async (
   );
 
   if (!isPasswordValid) {
-    throw new ApiPathError(httpStatus.BAD_REQUEST,"currentPassword" ,"Incorrect old password");
+    throw new ApiPathError(httpStatus.BAD_REQUEST,"currentPassword" ,"Incorrect current password");
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, 12);

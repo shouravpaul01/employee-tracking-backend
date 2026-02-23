@@ -8,7 +8,7 @@ export const parseBodyData = (
   if (req.body.bodyData) {
     try {
       req.body = JSON.parse(req.body.bodyData);
-      console.log("body", req.body);
+     
     } catch (error) {
       return res.status(400).json({
         success: false,
