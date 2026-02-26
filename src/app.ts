@@ -15,7 +15,7 @@ const app: Application = express();
 export const corsOptions = {
   origin: [
     "http://localhost:3000",
-    "https://hoomanarjmand-frontend.vercel.app/",
+    "https://hoomanarjmand-frontend.vercel.app",
   ],
 
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
