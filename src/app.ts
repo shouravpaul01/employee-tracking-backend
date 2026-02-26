@@ -8,14 +8,14 @@ import router from "./app/routes";
 import GlobalErrorHandler from "./app/middlewares/globalErrorHandler";
 import { AppBodyTemplate } from "./utils/BodyTemplate";
 import morgan from "morgan";
-import { rateLimit } from 'express-rate-limit'
+import { rateLimit } from "express-rate-limit";
 
 const app: Application = express();
 
 export const corsOptions = {
   origin: [
     "http://localhost:3000",
-  
+    "https://hoomanarjmand-frontend.vercel.app/",
   ],
 
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
@@ -29,19 +29,18 @@ export const corsOptions = {
   credentials: true,
 };
 const limiterOptions = {
-	windowMs: 1 * 60 * 1000, 
-	limit: 30, 
-	standardHeaders: 'draft-8' as const,
-	legacyHeaders: false, 
-	ipv6Subnet: 56, 
+  windowMs: 1 * 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-8" as const,
+  legacyHeaders: false,
+  ipv6Subnet: 56,
   handler: (req: Request, res: Response) => {
     res.status(httpStatus.TOO_MANY_REQUESTS).json({
       success: false,
       message: "Too many requests from this IP. Please try again later.",
     });
   },
-
-}
+};
 // Middleware setup
 app.use(cors(corsOptions));
 app.use(cookieParser());
@@ -53,8 +52,7 @@ app.use(morgan("dev"));
 
 // Apply rate limiting to protect the API from abuse, brute-force attacks,
 // and excessive requests by limiting the number of requests per IP.
-app.use(rateLimit(limiterOptions))
-
+app.use(rateLimit(limiterOptions));
 
 // Route handler for the root endpoint
 app.get("/", (req: Request, res: Response) => {
@@ -66,7 +64,7 @@ app.get("/", (req: Request, res: Response) => {
       repoUrl: "",
       docsUrl: "https://github.com/shouravpaul01",
       showButtons: true,
-    })
+    }),
   );
 });
 
@@ -90,6 +88,5 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     },
   });
 });
-
 
 export default app;
