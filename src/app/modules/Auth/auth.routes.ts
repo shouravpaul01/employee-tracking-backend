@@ -21,7 +21,7 @@ router.post(
   validateRequest(AuthValidations.login),
   AuthControllers.loginUser,
 );
-
+router.post("/refresh-token", AuthControllers.refreshToken);
 router.patch(
   "/change-password",
   validateRequest(AuthValidations.changePassword),
@@ -40,5 +40,5 @@ router.post(
   validateRequest(AuthValidations.resetPassword),
   AuthControllers.resetPassword,
 );
-
+router.post("/logout", AuthControllers.logout);
 export const AuthRoutes = router;

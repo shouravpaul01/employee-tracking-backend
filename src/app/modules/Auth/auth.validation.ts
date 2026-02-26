@@ -1,3 +1,4 @@
+import { UserRole } from "@prisma/client";
 import { z } from "zod";
 
 
@@ -15,6 +16,7 @@ const login = z.object({
   body: z.object({
     email: z.string().nonempty("Email is required.").email("Valid email is required."),
     password: z.string().nonempty("Password is required."),
+    role:z.enum([UserRole.ADMIN,UserRole.EMPLOYEE],{message:"Invalid role."})
   }),
 });
 const forgotPassword = z.object({

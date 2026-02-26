@@ -20,14 +20,45 @@ const createProject = async (payload: any) => {
 
 const getAllProjects = async (query: Record<string, undefined>) => {
   const queryBuilder = new QueryBuilder(prisma.project, query);
-  const result =await queryBuilder
+
+  // 1️⃣ fetch filtered, searched, sorted, paginated projects
+  const projects = await queryBuilder
     .search(["name", "clientName", "propertyAddress"])
     .filter()
     .sort()
     .paginate()
     .execute();
+
   const meta = await queryBuilder.countTotal();
-  return { data: result, meta };
+
+  // 2️⃣ calculate today's assigned employee count per project
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const projectIds = projects.map((p: any) => p.id);
+
+  // prisma aggregate query for count
+  const assignedCounts = await prisma.assignedEmployee.groupBy({
+    by: ["projectId"],
+    where: {
+      projectId: { in: projectIds },
+      createdAt: { gte: startOfDay },
+    },
+    _count: { id: true },
+  });
+
+  // 3️⃣ attach count to each project
+  const resultWithCount = projects.map((project: any) => {
+    const countObj = assignedCounts.find(
+      (c) => c.projectId === project.id
+    );
+    return {
+      ...project,
+      todayAssignedEmployees: countObj?._count?.id || 0,
+    };
+  });
+
+  return { data: resultWithCount, meta };
 };
 
 const getSingleProject = async (id: string) => {

@@ -15,8 +15,7 @@ const app: Application = express();
 export const corsOptions = {
   origin: [
     "http://localhost:3000",
-    "https://www.corverapro.com",
-    "https://corverapro.com",
+  
   ],
 
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
@@ -30,7 +29,7 @@ export const corsOptions = {
   credentials: true,
 };
 const limiterOptions = {
-	windowMs: 1 * 60 * 1000, // 1 minutes
+	windowMs: 1 * 60 * 1000, 
 	limit: 30, 
 	standardHeaders: 'draft-8' as const,
 	legacyHeaders: false, 

@@ -1,4 +1,4 @@
-import { User, UserStatus } from "@prisma/client";
+import { User, UserRole, UserStatus } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import * as crypto from "crypto";
 import httpStatus from "http-status";
@@ -35,7 +35,7 @@ const register = async (payload: User & { password: string }) => {
 
   return existingUser;
 };
-const loginUser = async (payload: { email: string; password: string }) => {
+const loginUser = async (payload: { email: string; password: string,role:UserRole }) => {
   const existingUser = await prisma.user.findUnique({
     where: {
       email: payload.email,
@@ -50,7 +50,9 @@ const loginUser = async (payload: { email: string; password: string }) => {
   if (existingUser.status === UserStatus.BLOCKED) {
     throw new ApiError(httpStatus.FORBIDDEN, "Your account is blocked.");
   }
-
+  if (existingUser.role!==payload.role) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Invalid credentials.");
+  }
   const isCorrectPassword: boolean = await bcrypt.compare(
     payload.password,
     existingUser.credential?.password as string,
@@ -90,7 +92,38 @@ const loginUser = async (payload: { email: string; password: string }) => {
     message: "User logged in successfully",
   };
 };
+ const refreshToken = async (token: string) => {
+  try {
+    const decoded = jwtHelpers.verifyToken(token, config.jwt.refresh_token_secret as string)
 
+    // Optional: check if user still exists
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      include: { credential: true },
+    });
+
+    if (!user || user.status === "BLOCKED") {
+      throw new ApiError(httpStatus.UNAUTHORIZED, "User not found or blocked");
+    }
+
+    // Generate new access token
+    const newAccessToken = jwtHelpers.generateToken(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        photo: user.photo || null,
+      },
+      config.jwt.jwt_secret as string,
+       config.jwt.expires_in as string
+    );
+
+    return {accessToken:newAccessToken};
+  } catch (error) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Invalid or expired refresh token");
+  }
+};
 const forgotPassword = async (payload: { email: string }) => {
   const existingUser = await prisma.user.findUnique({
     where: {
@@ -191,6 +224,7 @@ const changePassword = async (
 export const AuthServices = {
   register,
   loginUser,
+  refreshToken,
   changePassword,
   forgotPassword,
   resetPassword,
