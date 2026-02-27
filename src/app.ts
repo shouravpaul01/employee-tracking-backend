@@ -16,7 +16,9 @@ export const corsOptions = {
   origin: [
     "http://localhost:3000",
     "https://hoomanarjmand-frontend.vercel.app",
-    "https://hoomanarjmand-frontend.vercel.app/"
+    "https://hoomanarjmand-frontend.vercel.app/",
+    "http://206.162.244.143:3120",
+    "http://206.162.244.143:3120/"
   ],
 
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],

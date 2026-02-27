@@ -167,7 +167,7 @@ const getAllExpensesByEmployee = async (
     totalByStatus[item.status] = item._sum.amount ?? 0;
   });
 
-  return { data: result, meta, totalByStatus };
+  return { data: result, meta:{...meta,summery:{...totalByStatus}} };
 };
 export const ExpensesService = {
   createExpenses,

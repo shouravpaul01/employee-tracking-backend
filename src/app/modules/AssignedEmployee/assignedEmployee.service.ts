@@ -5,6 +5,8 @@ import ApiError from "../../../errors/ApiErrors";
 import httpStatus from "http-status";
 import ApiPathError from "../../../errors/ApiPathError";
 import { NotificationService } from "../Notification/notification.service";
+import QueryBuilder from "../../../helpers/queryBuilder";
+import { startOfISOWeek, endOfISOWeek } from 'date-fns';
 
 const assignedEmployee = async (payload: AssignedEmployee) => {
   const existingProject = await prisma.project.findUnique({
@@ -74,7 +76,7 @@ const updateCheckInOutBreakInOutTime = async (
   //  find today's assignment
   const assignedEmployee = await prisma.assignedEmployee.findFirst({
     where: {
-      id:assignedId,
+      id: assignedId,
       employeeId: userId,
     },
     include: {
@@ -157,8 +159,13 @@ const updateCheckInOutBreakInOutTime = async (
 
   return { data: updated, message };
 };
-const getProjectsByAssignedDate = async (dateStr: string, userId: string) => {
-    if (!dateStr) {
+
+const getProjectsByAssignedDate = async (
+  userId: string,
+  query: Record<string, undefined>,
+) => {
+  const dateStr = query.date;
+  if (!dateStr) {
     throw new ApiError(400, "Date query parameter is required");
   }
 
@@ -171,25 +178,29 @@ const getProjectsByAssignedDate = async (dateStr: string, userId: string) => {
 
   const endOfDay = new Date(dateStr);
   endOfDay.setHours(23, 59, 59, 999);
+
   const existingUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!existingUser) {
     throw new ApiError(httpStatus.NOT_FOUND, "User not found!");
   }
-  const whereCondition: any = {
-    assignedEmployees: {
-      some: {
-        createdAt: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-        ...(existingUser.role === UserRole.EMPLOYEE && { employeeId: userId }),
-      },
-    },
-  };
 
-  const projects = await prisma.project.findMany({
-    where: whereCondition,
-    include: {
+  const queryBuilder = new QueryBuilder(prisma.project, query);
+  const result = await queryBuilder
+    .rawFilter({
+      assignedEmployees: {
+        some: {
+          createdAt: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
+          ...(existingUser.role === UserRole.EMPLOYEE && {
+            employeeId: userId,
+          }),
+        },
+      },
+    })
+    .sort()
+    .include({
       assignedEmployees: {
         where: {
           createdAt: {
@@ -211,13 +222,96 @@ const getProjectsByAssignedDate = async (dateStr: string, userId: string) => {
         },
       },
       expenses: true,
-    },
+    })
+    .paginate()
+    .execute();
+
+  const meta = await queryBuilder.countTotal();
+
+  // ✨ Add todayAssignedEmployees field
+  const dataWithCount = result.map((project:any)=> ({
+    ...project,
+    todayAssignedEmployees: project.assignedEmployees.length,
+  }));
+
+  return { data: dataWithCount, meta };
+};
+
+
+export const getRecentEntriesEmployeeWeeklySummary= async (
+  employeeId: string,
+  
+) => {
+  const weekStart = startOfISOWeek(new Date());
+  const weekEnd = endOfISOWeek(new Date());
+
+  // Fetch all entries for the week
+  const queryBuilder = new QueryBuilder(prisma.assignedEmployee, {
+    employeeId,
+    createdAt: { gte: weekStart, lte: weekEnd },
   });
 
-  return projects;
+  const entries = await queryBuilder
+    .filter()
+    .include({ project: true })
+    .execute();
+ const meta = await queryBuilder.countTotal();
+
+  // Group entries by day
+  const dailyMinutesMap: Record<string, number> = {};
+
+  entries.forEach((entry: any) => {
+    if (entry.checkIn && entry.checkOut) {
+      const checkIn = new Date(entry.checkIn).getTime();
+      const checkOut = new Date(entry.checkOut).getTime();
+      let durationMinutes = (checkOut - checkIn) / (1000 * 60);
+
+      // Subtract break time if available
+      if (entry.breakTimeStart && entry.breakTimeEnd) {
+        const breakStart = new Date(entry.breakTimeStart).getTime();
+        const breakEnd = new Date(entry.breakTimeEnd).getTime();
+        durationMinutes -= (breakEnd - breakStart) / (1000 * 60);
+      }
+
+      if (durationMinutes <= 0) return;
+
+      // Group by day (YYYY-MM-DD)
+      const day = new Date(entry.checkIn).toISOString().split('T')[0];
+      if (!dailyMinutesMap[day]) dailyMinutesMap[day] = 0;
+      dailyMinutesMap[day] += durationMinutes;
+    }
+  });
+
+  // Calculate weekly totals
+  let totalRegularMinutes = 0;
+  let totalOvertimeMinutes = 0;
+
+  Object.values(dailyMinutesMap).forEach((minutes) => {
+    const dailyRegular = Math.min(minutes, 8 * 60); // 8h regular
+    const dailyOvertime = Math.max(minutes - 8 * 60, 0);
+    totalRegularMinutes += dailyRegular;
+    totalOvertimeMinutes += dailyOvertime;
+  });
+
+  const totalHours = (totalRegularMinutes + totalOvertimeMinutes) / 60;
+
+  return {
+    meta:{...meta,totalHours: parseFloat(totalHours.toFixed(2)),
+    totalRegularHours: parseFloat((totalRegularMinutes / 60).toFixed(2)),
+    totalOvertimeHours: parseFloat((totalOvertimeMinutes / 60).toFixed(2)),
+    dailyBreakdown: Object.fromEntries(
+      Object.entries(dailyMinutesMap).map(([day, minutes]) => {
+        const regular = Math.min(minutes, 8 * 60);
+        const overtime = Math.max(minutes - 8 * 60, 0);
+        return [day, { regularHours: +(regular / 60).toFixed(2), overtimeHours: +(overtime / 60).toFixed(2) }];
+      }),
+    ),},
+    data:entries, 
+  };
 };
 export const AssignedEmployeeService = {
   assignedEmployee,
   updateCheckInOutBreakInOutTime,
   getProjectsByAssignedDate,
+  getRecentEntriesEmployeeWeeklySummary
 };

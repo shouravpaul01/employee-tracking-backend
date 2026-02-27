@@ -60,7 +60,7 @@ export const getAllExpensesByEmployee = catchAsync(async (req, res) => {
     req.user.id,
     req.query as Record<string, undefined>,
   );
-
+console.log(result,"dkdk")
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,

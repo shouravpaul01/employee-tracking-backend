@@ -8,6 +8,12 @@ import ApiError from "../../../errors/ApiErrors";
 
 const register = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthServices.register(req.body);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Successfully registered a employee.",
+    data: result,
+  });
 });
 const loginUser = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthServices.loginUser(req.body);
@@ -93,7 +99,7 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
- const logout = catchAsync(async (req: Request, res: Response) => {
+const logout = catchAsync(async (req: Request, res: Response) => {
   // Clear both accessToken and refreshToken cookies
   res.clearCookie("accessToken", {
     httpOnly: true,
@@ -121,5 +127,5 @@ export const AuthControllers = {
   forgotPassword,
   resetPassword,
   changePassword,
-  logout
+  logout,
 };

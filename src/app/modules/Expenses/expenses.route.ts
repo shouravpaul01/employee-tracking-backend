@@ -12,15 +12,13 @@ const router = Router();
 router.post(
   "/",
   auth(UserRole.EMPLOYEE),
-  fileUploader.single("receiptDocImage",{required:true}),
+  fileUploader.single("receiptDocImage", { required: true }),
   parseBodyData,
   validateRequest(ExpensesValidation.createExpense),
   ExpensesController.createExpense,
 );
 
 router.get("/", auth(UserRole.ADMIN), ExpensesController.getAllExpenses);
-
-
 
 router.patch(
   "/:id/status",

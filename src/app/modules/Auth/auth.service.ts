@@ -16,13 +16,13 @@ const register = async (payload: User & { password: string }) => {
     where: { email: payload.email },
   });
   if (existingUser) {
-    throw new ApiError(httpStatus.CONFLICT, "Email already exists");
+    throw new ApiPathError(httpStatus.CONFLICT,"email", "Email already exists");
   }
 
   const hashedPassword: string = await bcrypt.hash(payload.password, 12);
   const { password, ...userData } = payload;
   //create user
-  await prisma.user.create({
+ const res= await prisma.user.create({
     data: {
       ...userData,
       credential: {
@@ -33,7 +33,7 @@ const register = async (payload: User & { password: string }) => {
     },
   });
 
-  return existingUser;
+  return res;
 };
 const loginUser = async (payload: { email: string; password: string,role:UserRole }) => {
   const existingUser = await prisma.user.findUnique({

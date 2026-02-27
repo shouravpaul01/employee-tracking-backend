@@ -3,6 +3,7 @@ import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import { AssignedEmployeeService } from "./assignedEmployee.service";
 import { AttendanceStatus } from "@prisma/client";
+import { query } from "express";
 
 const assignedEmployee = catchAsync(async (req, res) => {
   const result = await AssignedEmployeeService.assignedEmployee(req.body);
@@ -15,7 +16,7 @@ const assignedEmployee = catchAsync(async (req, res) => {
 });
 const updateCheckInOutBreakInOutTime = catchAsync(async (req, res) => {
   const { status } = req.query;
-  const {id}=req.params
+  const { id } = req.params;
   const result = await AssignedEmployeeService.updateCheckInOutBreakInOutTime(
     req.user.id,
     id as string,
@@ -29,21 +30,33 @@ const updateCheckInOutBreakInOutTime = catchAsync(async (req, res) => {
   });
 });
 const getProjectsByAssignedDate = catchAsync(async (req, res) => {
-  const { date } = req.query;
-
   const result = await AssignedEmployeeService.getProjectsByAssignedDate(
-    date as string,
     req.user.id,
+    req.query as Record<string, undefined>,
   );
-
-  res.status(200).json({
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
     success: true,
     message: "Assigned Projects fetched successfully",
-    data: result,
+    ...result,
+  });
+});
+const getRecentEntriesEmployeeWeeklySummary = catchAsync(async (req, res) => {
+  const result =
+    await AssignedEmployeeService.getRecentEntriesEmployeeWeeklySummary(
+      req.user.id,
+    );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Recent entries fetched successfully",
+    ...result,
   });
 });
 export const AssignedEmployeeController = {
   assignedEmployee,
   updateCheckInOutBreakInOutTime,
   getProjectsByAssignedDate,
+  getRecentEntriesEmployeeWeeklySummary
 };

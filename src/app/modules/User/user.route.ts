@@ -9,7 +9,6 @@ import fileUploaderCloud from "../../../helpers/fileUploaderCloud";
 
 const router = express.Router();
 
-// const uploadSingle = fileUploader.upload.single("profileImage");
 
 router.get("/get-me", auth(), UserController.getMe);
 // get single user

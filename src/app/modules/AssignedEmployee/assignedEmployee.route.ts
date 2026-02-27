@@ -22,4 +22,9 @@ router.get(
   auth(UserRole.ADMIN, UserRole.EMPLOYEE),
   AssignedEmployeeController.getProjectsByAssignedDate,
 );
+router.get(
+  "/recent-entries-with-summery",
+  auth( UserRole.EMPLOYEE),
+  AssignedEmployeeController.getRecentEntriesEmployeeWeeklySummary,
+);
 export const AssignedEmployeeRoute = router;
