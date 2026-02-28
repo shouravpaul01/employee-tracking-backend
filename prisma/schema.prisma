@@ -57,11 +57,16 @@ model Project {
   notes           String?
   status          ProjectStatus @default(PENDING)
 
-  lastWorkingDate   DateTime?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  expenses          Expenses[]
-  assignedEmployees AssignedEmployee[]
+  lastWorkingDate    DateTime?
+  walkthroughVideo   String?
+  stagedVideo        String?
+  beforeDestageVideo String?
+  destagedVideo      String?
+  photos             String[]           @default([])
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  expenses           Expenses[]
+  assignedEmployees  AssignedEmployee[]
 
   @@index([clientName, status, lastWorkingDate])
   @@map("projects")
@@ -166,6 +171,7 @@ enum ProjectStatus {
   PENDING
   STAGING
   WALKTHROUGH
+  BEFOREDESTAGE
   DESTAGING
   COMPLETED
 }

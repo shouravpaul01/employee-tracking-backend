@@ -1,3 +1,4 @@
+import { ProjectStatus } from "@prisma/client";
 import { z } from "zod";
 
 const createProject = z.object({
@@ -27,8 +28,15 @@ const updateProject = z.object({
       .optional(),
   }),
 });
-
+const updateMedia = z.object({
+  body: z.object({
+    status: z.enum([ProjectStatus.WALKTHROUGH,ProjectStatus.DESTAGING,ProjectStatus.STAGING], {
+      message: "Invalid Status",
+    }),
+  }),
+});
 export const ProjectValidation = {
   createProject,
   updateProject,
+  updateMedia
 };

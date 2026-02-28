@@ -1,4 +1,9 @@
-import { AssignedEmployee, AttendanceStatus, UserRole } from "@prisma/client";
+import {
+  AssignedEmployee,
+  AssignedEmployeeRole,
+  AttendanceStatus,
+  UserRole,
+} from "@prisma/client";
 import exp from "constants";
 import prisma from "../../../shared/prisma";
 import ApiError from "../../../errors/ApiErrors";
@@ -6,7 +11,7 @@ import httpStatus from "http-status";
 import ApiPathError from "../../../errors/ApiPathError";
 import { NotificationService } from "../Notification/notification.service";
 import QueryBuilder from "../../../helpers/queryBuilder";
-import { startOfISOWeek, endOfISOWeek } from 'date-fns';
+import { startOfISOWeek, endOfISOWeek, startOfWeek, endOfWeek } from "date-fns";
 
 const assignedEmployee = async (payload: AssignedEmployee) => {
   const existingProject = await prisma.project.findUnique({
@@ -118,7 +123,7 @@ const updateCheckInOutBreakInOutTime = async (
       if (assignedEmployee.status !== "ON_BREAK") {
         throw new ApiError(httpStatus.BAD_REQUEST, "No active break to end");
       }
-      data = { breakTimeEnd: now, status: "CHECKED_IN" };
+      data = { breakTimeEnd: now, status: "BREAK_ENDED" };
       message = "Break ended";
       break;
 
@@ -186,6 +191,8 @@ const getProjectsByAssignedDate = async (
 
   const queryBuilder = new QueryBuilder(prisma.project, query);
   const result = await queryBuilder
+    .search(["name", "clientName"])
+    .filter()
     .rawFilter({
       assignedEmployees: {
         some: {
@@ -199,6 +206,7 @@ const getProjectsByAssignedDate = async (
         },
       },
     })
+
     .sort()
     .include({
       assignedEmployees: {
@@ -229,89 +237,259 @@ const getProjectsByAssignedDate = async (
   const meta = await queryBuilder.countTotal();
 
   // ✨ Add todayAssignedEmployees field
-  const dataWithCount = result.map((project:any)=> ({
+  const dataWithCount = result.map((project: any) => ({
     ...project,
     todayAssignedEmployees: project.assignedEmployees.length,
   }));
 
   return { data: dataWithCount, meta };
 };
-
-
-export const getRecentEntriesEmployeeWeeklySummary= async (
-  employeeId: string,
-  
-) => {
-  const weekStart = startOfISOWeek(new Date());
-  const weekEnd = endOfISOWeek(new Date());
-
-  // Fetch all entries for the week
-  const queryBuilder = new QueryBuilder(prisma.assignedEmployee, {
-    employeeId,
-    createdAt: { gte: weekStart, lte: weekEnd },
+const getSingleAssignedProject = async (id: string) => {
+  const project = await prisma.assignedEmployee.findUnique({
+    where: { id },
+    include: {
+      project: true,
+    },
   });
+
+  if (!project) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Project not found");
+  }
+
+  return project;
+};
+
+export const getRecentEntriesEmployeeWeeklySummary = async (
+  employeeId: string,
+) => {
+  const findQuery = { employeeId };
+
+  // 🔹 MAIN QUERY (unchanged)
+  const queryBuilder = new QueryBuilder(prisma.assignedEmployee, findQuery);
 
   const entries = await queryBuilder
     .filter()
     .include({ project: true })
     .execute();
- const meta = await queryBuilder.countTotal();
 
-  // Group entries by day
-  const dailyMinutesMap: Record<string, number> = {};
+  const meta = await queryBuilder.countTotal();
 
-  entries.forEach((entry: any) => {
-    if (entry.checkIn && entry.checkOut) {
-      const checkIn = new Date(entry.checkIn).getTime();
-      const checkOut = new Date(entry.checkOut).getTime();
-      let durationMinutes = (checkOut - checkIn) / (1000 * 60);
-
-      // Subtract break time if available
-      if (entry.breakTimeStart && entry.breakTimeEnd) {
-        const breakStart = new Date(entry.breakTimeStart).getTime();
-        const breakEnd = new Date(entry.breakTimeEnd).getTime();
-        durationMinutes -= (breakEnd - breakStart) / (1000 * 60);
-      }
-
-      if (durationMinutes <= 0) return;
-
-      // Group by day (YYYY-MM-DD)
-      const day = new Date(entry.checkIn).toISOString().split('T')[0];
-      if (!dailyMinutesMap[day]) dailyMinutesMap[day] = 0;
-      dailyMinutesMap[day] += durationMinutes;
+  // 🔹 ENTRY LEVEL CALCULATION
+  const result = entries.map((item: any) => {
+    if (!item.checkIn || !item.checkOut) {
+      return {
+        ...item,
+        totalHours: 0,
+        normalHours: 0,
+        overtimeHours: 0,
+        doubleOvertimeHours: 0,
+      };
     }
+
+    let totalMs = item.checkOut.getTime() - item.checkIn.getTime();
+
+    if (item.breakTimeStart && item.breakTimeEnd) {
+      totalMs -= item.breakTimeEnd.getTime() - item.breakTimeStart.getTime();
+    }
+
+    const totalHours = totalMs / (1000 * 60 * 60);
+
+    let normalHours = 0;
+    let overtimeHours = 0;
+    let doubleOvertimeHours = 0;
+
+    if (totalHours <= 8) {
+      normalHours = totalHours;
+    } else if (totalHours <= 12) {
+      normalHours = 8;
+      overtimeHours = totalHours - 8;
+    } else {
+      normalHours = 8;
+      overtimeHours = 4;
+      doubleOvertimeHours = totalHours - 12;
+    }
+
+    return {
+      ...item,
+      totalHours: Number(totalHours.toFixed(2)),
+      normalHours: Number(normalHours.toFixed(2)),
+      overtimeHours: Number(overtimeHours.toFixed(2)),
+      doubleOvertimeHours: Number(doubleOvertimeHours.toFixed(2)),
+    };
   });
 
-  // Calculate weekly totals
-  let totalRegularMinutes = 0;
-  let totalOvertimeMinutes = 0;
+  // ================================
+  // 🔥 SEPARATE WEEKLY QUERY
+  // ================================
 
-  Object.values(dailyMinutesMap).forEach((minutes) => {
-    const dailyRegular = Math.min(minutes, 8 * 60); // 8h regular
-    const dailyOvertime = Math.max(minutes - 8 * 60, 0);
-    totalRegularMinutes += dailyRegular;
-    totalOvertimeMinutes += dailyOvertime;
+  const startOfWeek = new Date();
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+  const weeklyEntries = await prisma.assignedEmployee.findMany({
+    where: {
+      employeeId,
+      createdAt: {
+        gte: startOfWeek,
+        lt: endOfWeek,
+      },
+    },
   });
 
-  const totalHours = (totalRegularMinutes + totalOvertimeMinutes) / 60;
+  let weeklyTotalHours = 0;
+  let weeklyRegularHours = 0;
+  let weeklyOvertimeHours = 0;
+  let weeklyDoubleOvertimeHours = 0;
+
+  weeklyEntries.forEach((item: any) => {
+    if (!item.checkIn || !item.checkOut) return;
+
+    let totalMs = item.checkOut.getTime() - item.checkIn.getTime();
+
+    if (item.breakTimeStart && item.breakTimeEnd) {
+      totalMs -= item.breakTimeEnd.getTime() - item.breakTimeStart.getTime();
+    }
+
+    const totalHours = totalMs / (1000 * 60 * 60);
+
+    if (totalHours <= 8) {
+      weeklyRegularHours += totalHours;
+    } else if (totalHours <= 12) {
+      weeklyRegularHours += 8;
+      weeklyOvertimeHours += totalHours - 8;
+    } else {
+      weeklyRegularHours += 8;
+      weeklyOvertimeHours += 4;
+      weeklyDoubleOvertimeHours += totalHours - 12;
+    }
+
+    weeklyTotalHours += totalHours;
+  });
 
   return {
-    meta:{...meta,totalHours: parseFloat(totalHours.toFixed(2)),
-    totalRegularHours: parseFloat((totalRegularMinutes / 60).toFixed(2)),
-    totalOvertimeHours: parseFloat((totalOvertimeMinutes / 60).toFixed(2)),
-    dailyBreakdown: Object.fromEntries(
-      Object.entries(dailyMinutesMap).map(([day, minutes]) => {
-        const regular = Math.min(minutes, 8 * 60);
-        const overtime = Math.max(minutes - 8 * 60, 0);
-        return [day, { regularHours: +(regular / 60).toFixed(2), overtimeHours: +(overtime / 60).toFixed(2) }];
-      }),
-    ),},
-    data:entries, 
+    data: result,
+    meta: {
+      ...meta,
+      weeklySummary: {
+        totalHours: Number(weeklyTotalHours.toFixed(2)),
+        regularHours: Number(weeklyRegularHours.toFixed(2)),
+        overtimeHours: Number(weeklyOvertimeHours.toFixed(2)),
+        doubleOvertimeHours: Number(weeklyDoubleOvertimeHours.toFixed(2)),
+      },
+    },
   };
+};
+export const updateAssignedEmployeeRole = async (
+  assignedEmployeeId: string,
+  newRole: AssignedEmployeeRole,
+) => {
+  // Check if assigned employee exists
+  const assignedEmployee = await prisma.assignedEmployee.findUnique({
+    where: { id: assignedEmployeeId },
+  });
+
+  if (!assignedEmployee) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Assigned employee not found");
+  }
+
+  // Update role
+  const updatedEmployee = await prisma.assignedEmployee.update({
+    where: { id: assignedEmployeeId },
+    data: { role: newRole },
+  });
+
+  return updatedEmployee;
+};
+
+export const getWeeklyEmployeeSummary = async (
+  query: Record<string, undefined>,
+) => {
+  const today = new Date();
+
+  // calculate current week Monday-Sunday
+  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+  const queryBuilder = new QueryBuilder(prisma.assignedEmployee, query);
+
+  const entries = await queryBuilder
+    .rawFilter({
+      checkIn: { gte: weekStart, lte: weekEnd },
+      checkOut: { not: null },
+    })
+    .include({ employee: true })
+    .execute();
+
+  const meta = await queryBuilder.countTotal();
+
+  // group by employee
+  const grouped: Record<string, AssignedEmployee[]> = {};
+  for (const entry of entries) {
+    if (!grouped[entry.employeeId]) grouped[entry.employeeId] = [];
+    grouped[entry.employeeId].push(entry);
+  }
+
+  // compute weekly totals
+  const result: any = [];
+
+  for (const employeeId in grouped) {
+    const employeeEntries: any = grouped[employeeId];
+    let totalHours = 0;
+    let normalHours = 0;
+    let overtimeHours = 0;
+    let doubleOvertimeHours = 0;
+
+    for (const entry of employeeEntries) {
+      if (!entry.checkIn || !entry.checkOut) continue;
+
+      let ms = entry.checkOut.getTime() - entry.checkIn.getTime();
+
+      if (entry.breakTimeStart && entry.breakTimeEnd) {
+        ms -= entry.breakTimeEnd.getTime() - entry.breakTimeStart.getTime();
+      }
+
+      const hours = ms / (1000 * 60 * 60);
+      totalHours += hours;
+
+      if (hours <= 8) {
+        normalHours += hours;
+      } else if (hours <= 12) {
+        normalHours += 8;
+        overtimeHours += hours - 8;
+      } else {
+        normalHours += 8;
+        overtimeHours += 4;
+        doubleOvertimeHours += hours - 12;
+      }
+    }
+
+    const employeeInfo = employeeEntries[0]?.employee;
+
+    result.push({
+      employee: {
+        id: employeeInfo.id,
+        name: employeeInfo.name,
+        email: employeeInfo.email,
+        phone: employeeInfo.phone,
+        photo: employeeInfo.photo,
+      },
+      totalHours: Number(totalHours.toFixed(2)),
+      normalHours: Number(normalHours.toFixed(2)),
+      overtimeHours: Number(overtimeHours.toFixed(2)),
+      doubleOvertimeHours: Number(doubleOvertimeHours.toFixed(2)),
+    });
+  }
+
+  return { data: result, meta };
 };
 export const AssignedEmployeeService = {
   assignedEmployee,
   updateCheckInOutBreakInOutTime,
   getProjectsByAssignedDate,
-  getRecentEntriesEmployeeWeeklySummary
+  getSingleAssignedProject,
+  getRecentEntriesEmployeeWeeklySummary,
+  updateAssignedEmployeeRole,
+  getWeeklyEmployeeSummary,
 };

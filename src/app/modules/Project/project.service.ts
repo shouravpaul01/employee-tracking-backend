@@ -3,13 +3,19 @@ import ApiError from "../../../errors/ApiErrors";
 import prisma from "../../../shared/prisma";
 import QueryBuilder from "../../../helpers/queryBuilder";
 import ApiPathError from "../../../errors/ApiPathError";
+import { ProjectStatus } from "@prisma/client";
+import { uploadFileToS3 } from "../../../helpers/uploadToS3";
 
 const createProject = async (payload: any) => {
   const existingName = await prisma.project.findUnique({
     where: { name: payload.name },
   });
   if (existingName) {
-    throw new ApiPathError(httpStatus.CONFLICT,"name","Already exists the name.")
+    throw new ApiPathError(
+      httpStatus.CONFLICT,
+      "name",
+      "Already exists the name.",
+    );
   }
   return prisma.project.create({
     data: {
@@ -47,11 +53,9 @@ const getAllProjects = async (query: Record<string, undefined>) => {
     _count: { id: true },
   });
 
-  // 3️⃣ attach count to each project
+  // 3 attach count to each project
   const resultWithCount = projects.map((project: any) => {
-    const countObj = assignedCounts.find(
-      (c) => c.projectId === project.id
-    );
+    const countObj = assignedCounts.find((c) => c.projectId === project.id);
     return {
       ...project,
       todayAssignedEmployees: countObj?._count?.id || 0,
@@ -92,7 +96,10 @@ const getSingleProject = async (id: string) => {
     throw new ApiError(httpStatus.NOT_FOUND, "Project not found");
   }
 
-  return project;
+  return {
+    ...project,
+    todayAssignedEmployees: project.assignedEmployees?.length,
+  };
 };
 
 const updateProject = async (id: string, payload: any) => {
@@ -122,10 +129,81 @@ const deleteProject = async (id: string) => {
   return null;
 };
 
+const updateProjectVideoPhotos = async (
+  projectId: string,
+  file: Express.Multer.File,
+  files: Express.Multer.File[],
+  payload: { status: ProjectStatus | "PHOTOS" },
+) => {
+  const existingProject = await prisma.project.findUnique({
+    where: { id: projectId },
+  });
+
+  if (!existingProject) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Project not found.");
+  }
+
+  let updateData: any = {};
+
+  // 👉 SINGLE FILE CASE (video types)
+  if (payload.status !== "PHOTOS") {
+    const res = await uploadFileToS3(file);
+    const fileUrl = res.fileUrl;
+
+    switch (payload.status) {
+      case "WALKTHROUGH":
+        updateData.walkthroughVideo = fileUrl;
+        break;
+
+      case "STAGING":
+        updateData.stagedVideo = fileUrl;
+        break;
+
+      case "DESTAGING":
+        updateData.destagedVideo = fileUrl;
+        break;
+
+      case "BEFOREDESTAGE":
+        updateData.beforeDestageVideo = fileUrl;
+        break;
+
+      default:
+        throw new ApiError(httpStatus.BAD_REQUEST, "Invalid status");
+    }
+  }
+
+  // 👉 MULTIPLE PHOTOS CASE
+  if (payload.status === "PHOTOS") {
+    const photoFiles = files as Express.Multer.File[];
+
+    if (!photoFiles || photoFiles.length === 0) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "No photos provided");
+    }
+
+    const uploadedPhotos = [];
+
+    for (const file of photoFiles) {
+      const res = await uploadFileToS3(file);
+      uploadedPhotos.push(res.fileUrl);
+    }
+
+    updateData.photos = {
+      push: uploadedPhotos, // MongoDB array push
+    };
+  }
+
+  const updatedProject = await prisma.project.update({
+    where: { id: projectId },
+    data: updateData,
+  });
+
+  return updatedProject;
+};
 export const ProjectService = {
   createProject,
   getAllProjects,
   getSingleProject,
   updateProject,
   deleteProject,
+  updateProjectVideoPhotos,
 };

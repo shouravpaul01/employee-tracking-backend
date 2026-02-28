@@ -41,6 +41,16 @@ const getProjectsByAssignedDate = catchAsync(async (req, res) => {
     ...result,
   });
 });
+const getSingleAssignedProject = catchAsync(async (req, res) => {
+  const result = await AssignedEmployeeService.getSingleAssignedProject(req.params.id);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Assigned project details fetched successfully.",
+    data: result,
+  });
+});
 const getRecentEntriesEmployeeWeeklySummary = catchAsync(async (req, res) => {
   const result =
     await AssignedEmployeeService.getRecentEntriesEmployeeWeeklySummary(
@@ -54,9 +64,42 @@ const getRecentEntriesEmployeeWeeklySummary = catchAsync(async (req, res) => {
     ...result,
   });
 });
+
+const updateAssignedEmployeeRole = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+
+  const result = await AssignedEmployeeService.updateAssignedEmployeeRole(
+    id,
+    role,
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Assigned employee role updated successfully",
+    data: result,
+  });
+});
+
+const getWeeklyEmployeeSummary = catchAsync(async (req, res) => {
+  const result = await AssignedEmployeeService.getWeeklyEmployeeSummary(
+    req.query as Record<string, undefined>,
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Weekly employee summary fetched successfully",
+    ...result,
+  });
+});
 export const AssignedEmployeeController = {
   assignedEmployee,
   updateCheckInOutBreakInOutTime,
   getProjectsByAssignedDate,
-  getRecentEntriesEmployeeWeeklySummary
+  getSingleAssignedProject,
+  getRecentEntriesEmployeeWeeklySummary,
+  updateAssignedEmployeeRole,
+  getWeeklyEmployeeSummary,
 };

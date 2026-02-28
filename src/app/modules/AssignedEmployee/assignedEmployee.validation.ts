@@ -1,4 +1,4 @@
-import { AssignedEmployeeRole } from "@prisma/client";
+import { AssignedEmployeeRole, ProjectStatus } from "@prisma/client";
 import { z } from "zod";
 
 const assignedEmployee = z.object({
@@ -10,7 +10,15 @@ const assignedEmployee = z.object({
     }),
   }),
 });
+const updateEmployeeRole = z.object({
+  body: z.object({
+    role: z.enum([AssignedEmployeeRole.PICKER, AssignedEmployeeRole.RUNNER], {
+      message: "Role must be 'RUNNER' or 'PIKER'",
+    }),
+  }),
+});
 
 export const AssignedEmployeeValidation={
-    assignedEmployee
+    assignedEmployee,
+    updateEmployeeRole
 }

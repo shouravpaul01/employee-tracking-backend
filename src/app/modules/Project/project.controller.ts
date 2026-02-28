@@ -15,13 +15,15 @@ const createProject = catchAsync(async (req, res) => {
 });
 
 const getAllProjects = catchAsync(async (req, res) => {
-  const result = await ProjectService.getAllProjects(req.query as Record<string,undefined>);
+  const result = await ProjectService.getAllProjects(
+    req.query as Record<string, undefined>,
+  );
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: "Projects fetched successfully.",
-    ... result,
+    ...result,
   });
 });
 
@@ -57,11 +59,33 @@ const deleteProject = catchAsync(async (req, res) => {
     data: null,
   });
 });
+const updateProjectVideoPhotos = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
 
+  //
+  const file = (req.files as any)?.file?.[0];
+  const files = (req.files as any)?.files || [];
+
+  const result = await ProjectService.updateProjectVideoPhotos(
+    id,
+    file,
+    files,
+    { status },
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Project media updated successfully.",
+    data: result,
+  });
+});
 export const ProjectController = {
   createProject,
   getAllProjects,
   getSingleProject,
   updateProject,
   deleteProject,
+  updateProjectVideoPhotos,
 };
