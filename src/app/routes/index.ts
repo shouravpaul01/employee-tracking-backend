@@ -7,6 +7,7 @@ import { ProjectRoute } from "../modules/Project/project.route";
 import { ExpensesRoute } from "../modules/Expenses/expenses.route";
 import { NotificationRoute } from "../modules/Notification/notification.route";
 import { AnalyticsRoute } from "../modules/Analytics/analytics.route";
+import { QuoteRoute } from "../modules/Quote/quote.route";
 
 
 const router = express.Router();
@@ -39,6 +40,10 @@ const moduleRoutes = [
   {
     path: "/analytics",
     route: AnalyticsRoute,
+  },
+  {
+    path: "/quote",
+    route: QuoteRoute,
   },
 ];
 
